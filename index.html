@@ -1,33 +1,78 @@
 <!doctype html>
-<html lang="it"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#111827">
-<link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icon.svg">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg">
 <title>DZDPWA</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#0b1220}
-#app{position:fixed;inset:0;width:100%;height:100%;border:0;background:white}
-#install{position:fixed;z-index:5;right:14px;bottom:14px;padding:12px 17px;border:0;border-radius:10px;background:#245fce;color:white;font:600 14px system-ui;box-shadow:0 3px 16px #0004}
-#install[hidden]{display:none}
-</style></head><body>
-<iframe id="app" title="DZDPWA" allow="clipboard-read; clipboard-write; geolocation; camera; microphone; fullscreen"></iframe>
-<button id="install" hidden>Installa DZDPWA</button>
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#111827;color:#f3f6fb;font:16px system-ui;display:grid;place-items:center}
+main{text-align:center;padding:28px;max-width:400px}
+h1{font-size:28px;margin-bottom:8px}
+p{color:#a8b6ca;line-height:1.5}
+.btn{display:inline-block;width:100%;margin-top:16px;padding:16px 24px;background:#3979e8;color:white;text-decoration:none;border-radius:11px;font-weight:700;border:none;cursor:pointer;font-size:16px}
+#installBtn{background:#45d49a;color:#111827;display:none}
+</style>
+</head>
+<body>
+<main>
+ <h1>DZDPWA</h1>
+ <p id="statusText">Verifica installazione PWA in corso…</p>
+ <button id="installBtn" class="btn">📲 INSTALLA APPLICAZIONE</button>
+ <a id="open" class="btn" href="#" style="display:none;">🚀 APRI APPLICAZIONE</a>
+</main>
 <script>
 const APP_URL="https://script.google.com/macros/s/AKfycbyKA31y1DVounPopnAS9LackRS0p9aXLNVZ_J91exSGPyV73B-rJVnwt5057z1mbhRg/exec";
-document.getElementById('app').src=APP_URL;
-let installPrompt=null;
-window.addEventListener('beforeinstallprompt',event=>{
- event.preventDefault();installPrompt=event;document.getElementById('install').hidden=false;
+let deferredPrompt;
+
+const installBtn = document.getElementById('installBtn');
+const openBtn = document.getElementById('open');
+const statusText = document.getElementById('statusText');
+
+openBtn.href = APP_URL;
+openBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  window.location.assign(APP_URL);
 });
-document.getElementById('install').addEventListener('click',async()=>{
- if(!installPrompt)return;
- installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;
- document.getElementById('install').hidden=true;
-});
-window.addEventListener('appinstalled',()=>{
- document.getElementById('install').hidden=true;
-});
-if('serviceWorker' in navigator){
- window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(console.error));
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
 }
-</script></body></html>
+
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+
+if (isStandalone) {
+  statusText.textContent = "Avvio dell'applicazione…";
+  window.location.replace(APP_URL);
+} else {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    statusText.textContent = "Installa l'app sul telefono per continuare:";
+    installBtn.style.display = 'block';
+  });
+
+  installBtn.addEventListener('click', async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') {
+      statusText.textContent = "Installazione completata! Avvio in corso…";
+      setTimeout(() => { window.location.replace(APP_URL); }, 1000);
+    }
+  });
+
+  setTimeout(() => {
+    if (!deferredPrompt && !isStandalone) {
+      statusText.textContent = "Premere per aprire o usa il menu del browser per installare.";
+      openBtn.style.display = 'block';
+    }
+  }, 3000);
+}
+</script>
+</body>
+</html>
